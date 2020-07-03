@@ -1,0 +1,132 @@
+-- Organizando a Solution ---------------------------------------------------------------------------------------------
+
+-- Cria as pastas dentro da Solution usando comandos PowerShell
+md PaymentContext.Domain
+md PaymentContext.Shared
+md PaymentContext.Tests
+
+-- Criar a Solution via comandos
+dotnet new sln
+
+-- Criar os projetos dentro das pastas criadas anteriormente
+cd PaymentContext.Domain
+dotnet new Classlib
+
+cd PaymentContext.Shared
+dotnet new Classlib
+
+cd PaymentContext.Tests
+dotnet new mstest
+
+dotnet sln add PaymentContext.Domain/PaymentContext.Domain.csproj   -- Adiciona o projeto à solução
+dotnet restore  -- Restaura todos os pacotes dos nossos projetos
+dotnet build 	-- Compila a solução
+
+dotnet run --project nomedoprojeto  --para executar um determinado projeto
+dotnet watch run --project nomedoprojeto  --para executar um determinado projeto e ficar assistindo 
+
+cd PaymentContext.Domain
+dotnet add reference ../PaymentContext.Shared\PaymentContext.Shared.csproj  -- Adiciona referência de Shared em Dominio
+
+cd PaymentContext.Tests
+dotnet add reference ../PaymentContext.Shared\PaymentContext.Shared.csproj  -- Adiciona referência de Shared em Tests
+dotnet add reference ../PaymentContext.Domain\PaymentContext.Domain.csproj  -- Adiciona referência de Domain em Tests
+
+
+-- Definir as Entidades -------------------------------------------------------------------------------------------------
+cd PaymentContext.Domain
+md Entities
+
+Criar os arquivos Student.cs, Payment.cs e Subscription.cs
+
+Exemplo: Depois iremos melhorar a classe
+namespace PaymentContext.Domain.Entities
+{
+    public class Student
+    {
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string Document { get; set; }
+        public string Email { get; set; }
+    }
+}
+
+- Realizar injeção de dependencias
+- Colocar as propriedades como private set, para evitar que burlem a injeção e setem valores nas propriedadessem instanciar a classe.
+- A propriedade lista deve ficar como IReadOnlyCollection para forçar que usem um método específico para adicionar itens na lista.
+
+Exemplo:
+private IList<Subscription> _subscriptions;
+
+public Student(Name name, Document document, Email email)
+{
+	Name = name;
+	Document = document;
+	Email = email;
+
+	_subscriptions = new List<Subscription>();
+
+	AddNotifications(name, document, email);
+}
+
+public Name Name { get; private set; }
+public Document Document { get; private set; }
+public Email Email { get; private set; }
+public Address Adress { get; private set; }
+public IReadOnlyCollection<Subscription> Subscriptions { get { return _subscriptions.ToArray(); } }
+
+
+- A entidade Payment é Abstrata pois dela vai surgi outras classes que herdarão (BoletoPayment, CreditCardPayment e PayPalPayment)
+- Na Classe Subscription o método de adicionar um pagamento reberá como Parâmetro a classe mãe Payment, assim um único método de adicionar, adicionará qualquer pagamento herdado de Payment
+Exemplo:
+
+private IList<Payment> _payments;
+
+public Subscription(DateTime? expireDate)
+{
+	CreateDate = DateTime.Now;
+	LastUpdateDate = DateTime.Now;
+	Active = true;
+	ExpireDate = expireDate;
+	_payments = new List<Payment>();
+}
+		
+public void AddPayment(Payment payment)
+{
+	AddNotifications(new Contract()
+		.Requires()
+		.IsGreaterThan(DateTime.Now, payment.PaidDate, "Subscriptions.Payments", "A data do pagamento deve ser futura"));
+
+	_payments.Add(payment);
+}
+
+
+- Como a classe Payment é Abstrata ela não pode ser instanciada, logo no construtor das classes que herdam dela, deve-se utilizar o "base" para passar todos os campos que são necessários para utilizar a Payment
+Exemplo:
+
+public BoletoPayment(string barCode, 
+	string boletoNumber, 
+	DateTime paidDate, 
+	DateTime expireDate, 
+	decimal total, 
+	decimal totalPaid, 
+	string payer,
+	Document document,
+	Address adress,
+	Email email) : base(paidDate, expireDate, total, totalPaid, payer, document, adress, email)
+{
+	BarCode = barCode;
+	BoletoNumber = boletoNumber;
+}
+
+
+- Primitive Obssesion (Obsessão por tipos primitivos), ou seja, utilizar tipos primitivos em excesso no código (string, datetime, int, etc...)
+por exemplo, se uma propriedade do tipo string que se repete em outras classes, como email, crie uma classe do tipo email com todas as suas regras e validações e utilize ela ao invés de criar várias propriedades email do tipo string.
+Para separar melhor esses casos, crie uma pasta dentro do projeto de Domain com o nome de ValueObjects, onde ficará essas classes comuns para várias outras classes.
+
+
+
+	
+
+
+	
